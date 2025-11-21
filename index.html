@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Building Coach - HCT</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- jsPDF for PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.4"
+  }
+}
+</script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- ICONS (Inline SVGs to avoid dependencies) ---
+        const Icon = ({ d, size = 20, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                <path d={d} />
+            </svg>
+        );
+        
+        const Icons = {
+            ChevronLeft: (p) => <Icon {...p} d="M15 18l-6-6 6-6" />,
+            ChevronRight: (p) => <Icon {...p} d="M9 18l6-6-6-6" />,
+            Lightbulb: (p) => <Icon {...p} d="M9 18h6 M10 22h4 M12 2v1 M12 18v-6 M8.9 6.5l-1.3-1.5 M2 11h1 M21 11h1 M16.4 6.5l1.3-1.5 M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z" />,
+            Trash2: (p) => <Icon {...p} d="M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6" />,
+            Plus: (p) => <Icon {...p} d="M12 5v14 M5 12h14" />,
+            Camera: (p) => <Icon {...p} d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+            Upload: (p) => <Icon {...p} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />,
+            CheckCircle2: (p) => <Icon {...p} d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M9 12l2 2 4-4" />,
+            Download: (p) => <Icon {...p} d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3" />,
+            RotateCcw: (p) => <Icon {...p} d="M1 4v6h6 M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />,
+            FileText: (p) => <Icon {...p} d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8" />,
+            PlusCircle: (p) => <Icon {...p} d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M12 8v8 M8 12h8" />,
+            X: (p) => <Icon {...p} d="M18 6L6 18M6 6l12 12" />
+        };
+
+        // --- STATIC DATA & HELPERS (Replacements for AI) ---
+        const SUGGESTIONS = {
+            objectives: [
+                "I am a hard-working student. I want an internship in [Field] to learn new skills.",
+                "I study [Major] at HCT. I am motivated and I want to use my skills in a real job.",
+                "I am looking for a job in [Industry]. I learn fast and I like to work with people.",
+                "I want to find an entry-level position to help the company and improve my knowledge."
+            ],
+            educationDescriptions: [
+                "I studied important subjects like [Course 1] and [Course 2]. I also did group projects.",
+                "I have good grades in my technical courses. I am good at research and presentations.",
+                "I learned how to use [Major] skills in real life. I joined many college activities."
+            ],
+            skillBullets: [
+                "• I can use this software very well.",
+                "• I am good at using this tool to finish tasks.",
+                "• I know how to use digital tools and email."
+            ],
+            softSkillExamples: {
+                "Teamwork": "I worked with a group of 4 students to finish a big project.",
+                "Communication": "I did a presentation for my class clearly and confidently.",
+                "Time Management": "I finished all my homework on time and never missed a deadline.",
+                "Problem Solving": "I fixed a technical problem during our group work."
+            },
+            actionVerbs: ["Assisted", "Organized", "Created", "Managed", "Supported", "Developed", "Communicated"],
+            strengths: [
+                "I am always on time.",
+                "I like to learn new things.",
+                "I am friendly and helpful.",
+                "I stay calm when I am busy."
+            ]
+        };
+
+        // Helper Service
+        const StaticHelper = {
+            getRandomObjective: () => SUGGESTIONS.objectives[Math.floor(Math.random() * SUGGESTIONS.objectives.length)],
+            
+            getEducationDesc: (program) => {
+                const base = SUGGESTIONS.educationDescriptions[Math.floor(Math.random() * SUGGESTIONS.educationDescriptions.length)];
+                return base.replace("[Major]", program || "my major");
+            },
+
+            getSkillBullets: (skills) => {
+                return skills.map(s => `• I am good at using ${s}.`).join("\n");
+            },
+
+            getSoftSkillExamples: (skills) => {
+                return skills.map(s => {
+                    const ex = SUGGESTIONS.softSkillExamples[s] || `I showed ${s} during my college activities.`;
+                    return `• ${s}: ${ex}`;
+                }).join("\n");
+            },
+
+            improveExperience: (text) => {
+                // Simple "AI" mock: Capitalize and add bullet
+                if (!text) return "• I helped the team with daily tasks.";
+                const lines = text.split('\n');
+                return lines.map(l => {
+                    let clean = l.trim().replace(/^[•-]\s*/, '');
+                    if(!clean) return '';
+                    // capitalize first letter
+                    clean = clean.charAt(0).toUpperCase() + clean.slice(1);
+                    return `• ${clean}`;
+                }).filter(Boolean).join('\n');
+            },
+            
+            generateHobbiesDesc: (hobbies) => {
+                if(hobbies.length === 0) return "";
+                return `I enjoy ${hobbies.join(', ').toLowerCase()} in my free time. These activities help me stay active and happy.`;
+            }
+        };
+
+        // --- DATA TYPES ---
+        const INITIAL_CV_DATA = {
+            personalInfo: { firstName: '', lastName: '', phone: '', email: '', city: '', linkedin: '', photo: '' },
+            objective: '',
+            education: [],
+            skills: { technical: [], soft: [], other: '' },
+            workExperience: [],
+            volunteerExperience: [],
+            projects: [],
+            achievements: [],
+            languages: { native: 'Arabic', englishLevel: 'A2', other: '' },
+            hobbies: { selected: [], other: '', description: '' },
+            strengths: [],
+        };
+
+        const STEPS = [
+            "Personal Info", "Objective", "Education", "Skills", 
+            "Experience", "Volunteer", "Projects", "Achievements", 
+            "Languages", "Hobbies", "Strengths", "Review"
+        ];
+
+        // --- SHARED COMPONENTS ---
+
+        const ProgressBar = ({ current, total }) => {
+            const progress = ((current + 1) / total) * 100;
+            return (
+                <div className="w-full mb-6">
+                    <div className="flex justify-between text-xs uppercase text-slate-500 mb-2 font-semibold tracking-wider">
+                        <span>Step {current + 1} of {total}</span>
+                        <span>{STEPS[current]}</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-600 transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+                    </div>
+                </div>
+            );
+        };
+
+        const HelperButton = ({ onClick, label, icon = true }) => {
+            const [clicked, setClicked] = useState(false);
+            const handleClick = async () => {
+                setClicked(true);
+                await onClick();
+                setTimeout(() => setClicked(false), 500);
+            };
+
+            return (
+                <button
+                    onClick={handleClick}
+                    className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-all transform active:scale-95
+                        ${clicked ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}
+                    `}
+                >
+                    {icon && <Icons.Lightbulb className="w-4 h-4 mr-2" />}
+                    {label}
+                </button>
+            );
+        };
+
+        const NavButtons = ({ currentStep, totalSteps, onNext, onPrev }) => (
+            <div className="flex justify-between mt-8 pt-6 border-t border-slate-200">
+                <button
+                    onClick={onPrev}
+                    disabled={currentStep === 0}
+                    className={`flex items-center px-6 py-2 rounded-lg text-sm font-medium transition-colors
+                        ${currentStep === 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`}
+                >
+                    <Icons.ChevronLeft className="w-4 h-4 mr-2" /> Back
+                </button>
+                
+                <button
+                    onClick={onNext}
+                    className="flex items-center px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-all shadow-sm hover:shadow-md"
+                >
+                    {currentStep === totalSteps - 1 ? 'Finish' : 'Next'}
+                    {currentStep !== totalSteps - 1 && <Icons.ChevronRight className="w-4 h-4 ml-2" />}
+                </button>
+            </div>
+        );
+
+        const Input = ({ label, value, onChange, placeholder }) => (
+            <div className="flex flex-col">
+                <label className="text-sm font-medium text-slate-700 mb-1">{label}</label>
+                <input
+                    className="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    type="text"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={placeholder}
+                />
+            </div>
+        );
+
+        // --- STEP COMPONENTS ---
+
+        const StepPersonal = ({ data, updateData }) => {
+            const handlePhotoUpload = (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert("Image is too large. Please choose a smaller photo (under 2MB).");
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        updateData({ personalInfo: { ...data.personalInfo, photo: reader.result } });
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const removePhoto = () => {
+                updateData({ personalInfo: { ...data.personalInfo, photo: '' } });
+            };
+
+            const handleChange = (f, v) => updateData({ personalInfo: { ...data.personalInfo, [f]: v } });
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <div><h2 className="text-2xl font-bold text-slate-800">Personal Information</h2></div>
+                    
+                    {/* Photo Upload */}
+                    <div className="flex items-center gap-6 bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
+                        <div className="relative group">
+                            <div className={`w-24 h-24 rounded-full flex items-center justify-center overflow-hidden border-2 ${data.personalInfo.photo ? 'border-indigo-500' : 'border-slate-200 bg-slate-100'}`}>
+                                {data.personalInfo.photo ? (
+                                    <img src={data.personalInfo.photo} alt="Profile" className="w-full h-full object-cover" />
+                                ) : (
+                                    <Icons.Camera className="w-8 h-8 text-slate-400" />
+                                )}
+                            </div>
+                            {data.personalInfo.photo && (
+                                <button onClick={removePhoto} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-sm hover:bg-red-600">
+                                    <Icons.Trash2 size={14} />
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Profile Photo (Optional)</label>
+                            <label className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer shadow-sm">
+                                <Icons.Upload className="w-4 h-4 mr-2" /> Upload Photo
+                                <input type="file" className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input label="First Name" placeholder="e.g. Ahmed" value={data.personalInfo.firstName} onChange={v => handleChange('firstName', v)} />
+                        <Input label="Family Name" placeholder="e.g. Al Mansoori" value={data.personalInfo.lastName} onChange={v => handleChange('lastName', v)} />
+                        <Input label="Phone Number" placeholder="e.g. 050 123 4567" value={data.personalInfo.phone} onChange={v => handleChange('phone', v)} />
+                        <Input label="Email" placeholder="e.g. ahmed@example.com" value={data.personalInfo.email} onChange={v => handleChange('email', v)} />
+                        <Input label="City / Emirate" placeholder="e.g. Abu Dhabi" value={data.personalInfo.city} onChange={v => handleChange('city', v)} />
+                        <Input label="LinkedIn (Optional)" placeholder="linkedin.com/in/..." value={data.personalInfo.linkedin} onChange={v => handleChange('linkedin', v)} />
+                    </div>
+                </div>
+            );
+        };
+
+        const StepObjective = ({ data, updateData }) => {
+            const giveIdea = () => updateData({ objective: StaticHelper.getRandomObjective() });
+            const improve = () => {
+                // Mock improvement
+                if(!data.objective) return giveIdea();
+                updateData({ objective: "Motivated student: " + data.objective });
+            };
+            const addStarter = (s) => updateData({ objective: (data.objective ? data.objective + ' ' : '') + s });
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Career Objective</h2>
+                    <textarea className="w-full h-32 p-3 border border-slate-300 rounded-lg" placeholder="I am a hard working student..." value={data.objective} onChange={(e) => updateData({ objective: e.target.value })} />
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-slate-700">Sentence starters:</p>
+                        <div className="flex flex-wrap gap-2">
+                            {["I am a student at...", "I want to work as...", "I have skills in..."].map(s => (
+                                <button key={s} onClick={() => addStarter(s)} className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm hover:bg-indigo-100">{s}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <HelperButton label="Give me ideas" onClick={giveIdea} />
+                    </div>
+                </div>
+            );
+        };
+
+        const StepEducation = ({ data, updateData }) => {
+            const addEdu = () => updateData({ education: [...data.education, { id: Date.now().toString(), institution: '', program: '', graduationYear: '', courses: '' }] });
+            const updateEdu = (id, f, v) => updateData({ education: data.education.map(e => e.id === id ? { ...e, [f]: v } : e) });
+            const removeEdu = (id) => updateData({ education: data.education.filter(e => e.id !== id) });
+            const suggest = (edu) => updateEdu(edu.id, 'courses', StaticHelper.getEducationDesc(edu.program));
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Education</h2>
+                    {data.education.map((edu, idx) => (
+                        <div key={edu.id} className="p-4 border rounded-lg bg-white shadow-sm space-y-4 relative">
+                            <button onClick={() => removeEdu(edu.id)} className="absolute top-4 right-4 text-red-400"><Icons.Trash2 size={18}/></button>
+                            <h3 className="font-medium">Education #{idx + 1}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <Input label="College Name" value={edu.institution} onChange={v => updateEdu(edu.id, 'institution', v)} />
+                                <Input label="Program / Major" value={edu.program} onChange={v => updateEdu(edu.id, 'program', v)} />
+                                <Input label="Graduation Year" value={edu.graduationYear} onChange={v => updateEdu(edu.id, 'graduationYear', v)} />
+                                <Input label="Description/Courses" value={edu.courses} onChange={v => updateEdu(edu.id, 'courses', v)} />
+                            </div>
+                            <HelperButton label="Suggest description" onClick={() => suggest(edu)} />
+                        </div>
+                    ))}
+                    <button onClick={addEdu} className="flex items-center text-indigo-600 font-medium"><Icons.Plus className="w-4 h-4 mr-1" /> Add Education</button>
+                </div>
+            );
+        };
+
+        const StepSkills = ({ data, updateData }) => {
+            const [activeTab, setActiveTab] = useState('tech');
+            const techOptions = ["Microsoft Word", "PowerPoint", "Excel (Basic)", "Teams / Zoom", "Typing", "Social Media", "Canva"];
+            const softOptions = ["Communication", "Teamwork", "Active Listening", "Problem Solving", "Time Management", "Customer Service"];
+
+            const toggleSkill = (s, type) => {
+                const list = data.skills[type];
+                updateData({ skills: { ...data.skills, [type]: list.includes(s) ? list.filter(i => i !== s) : [...list, s] } });
+            };
+
+            const generate = () => {
+                let text = "";
+                if (activeTab === 'tech') text = StaticHelper.getSkillBullets(data.skills.technical);
+                else text = StaticHelper.getSoftSkillExamples(data.skills.soft);
+                updateData({ skills: { ...data.skills, other: (data.skills.other ? data.skills.other + '\n' : '') + text } });
+            };
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Skills</h2>
+                    <div className="flex border-b border-slate-200">
+                        <button className={`px-4 py-2 font-medium text-sm ${activeTab === 'tech' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500'}`} onClick={() => setActiveTab('tech')}>Technical</button>
+                        <button className={`px-4 py-2 font-medium text-sm ${activeTab === 'soft' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500'}`} onClick={() => setActiveTab('soft')}>Soft Skills</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        {(activeTab === 'tech' ? techOptions : softOptions).map(opt => (
+                            <label key={opt} className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                                <input type="checkbox" checked={data.skills[activeTab === 'tech' ? 'technical' : 'soft'].includes(opt)} onChange={() => toggleSkill(opt, activeTab === 'tech' ? 'technical' : 'soft')} className="w-4 h-4 text-indigo-600" />
+                                <span className="ml-2 text-sm">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <HelperButton label={activeTab === 'tech' ? "Generate Bullet Points" : "Generate Examples"} onClick={generate} />
+                    <textarea className="w-full h-32 p-3 border rounded-md" value={data.skills.other} onChange={e => updateData({ skills: { ...data.skills, other: e.target.value } })} placeholder="Skill details..." />
+                </div>
+            );
+        };
+
+        const ExperienceList = ({ items, onChange, type }) => {
+            const add = () => onChange([...items, { id: Date.now().toString(), role: '', organization: '', dates: '', description: '', type }]);
+            const update = (id, f, v) => onChange(items.map(i => i.id === id ? { ...i, [f]: v } : i));
+            const remove = (id) => onChange(items.filter(i => i.id !== id));
+            const assist = (id, txt) => update(id, 'description', StaticHelper.improveExperience(txt));
+
+            return (
+                <div className="space-y-6">
+                    {items.map((item, idx) => (
+                        <div key={item.id} className="p-4 border rounded-lg bg-white shadow-sm space-y-4 relative">
+                            <button onClick={() => remove(item.id)} className="absolute top-4 right-4 text-red-400"><Icons.Trash2 size={18}/></button>
+                            <h3 className="font-medium">{type === 'work' ? 'Work' : 'Volunteer'} #{idx+1}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input className="p-2 border rounded" placeholder="Role" value={item.role} onChange={e => update(item.id, 'role', e.target.value)} />
+                                <input className="p-2 border rounded" placeholder="Organization" value={item.organization} onChange={e => update(item.id, 'organization', e.target.value)} />
+                                <input className="p-2 border rounded" placeholder="Dates" value={item.dates} onChange={e => update(item.id, 'dates', e.target.value)} />
+                            </div>
+                            <textarea className="w-full h-24 p-2 border rounded" placeholder="Description..." value={item.description} onChange={e => update(item.id, 'description', e.target.value)} />
+                            <HelperButton label="Format as bullets" onClick={() => assist(item.id, item.description)} />
+                        </div>
+                    ))}
+                    <button onClick={add} className="flex items-center text-indigo-600 font-medium"><Icons.Plus className="w-4 h-4 mr-1" /> Add {type === 'work' ? 'Work' : 'Volunteer'} Experience</button>
+                </div>
+            );
+        };
+
+        const StepWork = ({ data, updateData }) => <div className="fade-in"><h2 className="text-2xl font-bold text-slate-800 mb-2">Work Experience</h2><ExperienceList items={data.workExperience} onChange={i => updateData({ workExperience: i })} type="work" /></div>;
+        const StepVolunteer = ({ data, updateData }) => <div className="fade-in"><h2 className="text-2xl font-bold text-slate-800 mb-2">Volunteer Experience</h2><ExperienceList items={data.volunteerExperience} onChange={i => updateData({ volunteerExperience: i })} type="volunteer" /></div>;
+
+        const StepProjects = ({ data, updateData }) => {
+            const add = () => updateData({ projects: [...data.projects, { id: Date.now().toString(), title: '', course: '', description: '', details: '' }] });
+            const update = (id, f, v) => updateData({ projects: data.projects.map(p => p.id === id ? { ...p, [f]: v } : p) });
+            const remove = (id) => updateData({ projects: data.projects.filter(p => p.id !== id) });
+            const summarize = (id, txt) => update(id, 'description', "• I worked with my team to make " + (txt || "a project") + ".\n• I made slides and presented the project to the class.");
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Projects</h2>
+                    {data.projects.map((p, idx) => (
+                        <div key={p.id} className="p-4 border rounded-lg bg-white shadow-sm space-y-4 relative">
+                            <button onClick={() => remove(p.id)} className="absolute top-4 right-4 text-red-400"><Icons.Trash2 size={18}/></button>
+                            <h3 className="font-medium">Project #{idx+1}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input className="p-2 border rounded" placeholder="Project Title" value={p.title} onChange={e => update(p.id, 'title', e.target.value)} />
+                                <input className="p-2 border rounded" placeholder="Course" value={p.course} onChange={e => update(p.id, 'course', e.target.value)} />
+                            </div>
+                            <textarea className="w-full h-20 p-2 border rounded" placeholder="Notes..." value={p.details} onChange={e => update(p.id, 'details', e.target.value)} />
+                            <textarea className="w-full h-24 p-2 border rounded bg-slate-50" placeholder="Final Description" value={p.description} onChange={e => update(p.id, 'description', e.target.value)} />
+                            <HelperButton label="Summarize" onClick={() => summarize(p.id, p.title)} />
+                        </div>
+                    ))}
+                    <button onClick={add} className="flex items-center text-indigo-600 font-medium"><Icons.Plus className="w-4 h-4 mr-1" /> Add Project</button>
+                </div>
+            );
+        };
+
+        const StepAchievements = ({ data, updateData }) => {
+            const [val, setVal] = useState('');
+            const add = () => { if(val) { updateData({ achievements: [...data.achievements, val] }); setVal(''); } };
+            const remove = (i) => updateData({ achievements: data.achievements.filter((_, idx) => idx !== i) });
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Achievements</h2>
+                    <div className="flex gap-2">
+                        <input className="flex-1 p-2 border rounded" placeholder="e.g. Perfect Attendance" value={val} onChange={e => setVal(e.target.value)} />
+                        <button onClick={add} className="bg-indigo-600 text-white px-4 rounded"><Icons.Plus /></button>
+                    </div>
+                    <ul className="space-y-2">
+                        {data.achievements.map((a, i) => (
+                            <li key={i} className="flex justify-between p-3 bg-white border rounded">{a} <button onClick={() => remove(i)} className="text-red-400"><Icons.X size={16}/></button></li>
+                        ))}
+                    </ul>
+                </div>
+            );
+        };
+
+        const StepLanguages = ({ data, updateData }) => (
+            <div className="space-y-6 fade-in">
+                <h2 className="text-2xl font-bold text-slate-800">Languages</h2>
+                <Input label="Native Language" value={data.languages.native} onChange={v => updateData({ languages: { ...data.languages, native: v } })} />
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">English Level</label>
+                    <select className="w-full p-2 border rounded" value={data.languages.englishLevel} onChange={e => updateData({ languages: { ...data.languages, englishLevel: e.target.value } })}>
+                        <option value="A2">A2</option><option value="B1">B1</option><option value="B2">B2</option>
+                    </select>
+                </div>
+                <Input label="Other" value={data.languages.other} onChange={v => updateData({ languages: { ...data.languages, other: v } })} />
+            </div>
+        );
+
+        const StepHobbies = ({ data, updateData }) => {
+            const hobbies = ["Football", "Gym", "Gaming", "Movies", "Photography", "Travel", "Reading", "Cooking"];
+            const toggle = (h) => {
+                const s = data.hobbies.selected.includes(h) ? data.hobbies.selected.filter(i => i !== h) : [...data.hobbies.selected, h];
+                updateData({ hobbies: { ...data.hobbies, selected: s } });
+            };
+            const desc = () => updateData({ hobbies: { ...data.hobbies, description: StaticHelper.generateHobbiesDesc(data.hobbies.selected) } });
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Hobbies</h2>
+                    <div className="flex flex-wrap gap-2">{hobbies.map(h => <button key={h} onClick={() => toggle(h)} className={`px-4 py-2 rounded-full text-sm ${data.hobbies.selected.includes(h) ? 'bg-indigo-600 text-white' : 'bg-slate-100'}`}>{h}</button>)}</div>
+                    <textarea className="w-full h-24 p-3 border rounded" value={data.hobbies.description} onChange={e => updateData({ hobbies: { ...data.hobbies, description: e.target.value } })} />
+                    <HelperButton label="Write Description" onClick={desc} />
+                </div>
+            );
+        };
+
+        const StepStrengths = ({ data, updateData }) => {
+            const opts = ["I am punctual.", "I can work in a team.", "I am polite.", "I learn fast.", "I stay calm."];
+            const toggle = (s) => { const l = data.strengths; updateData({ strengths: l.includes(s) ? l.filter(i => i !== s) : [...l, s] }); };
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">Strengths</h2>
+                    <div className="grid gap-2">{opts.map(o => <label key={o} className="flex items-center p-3 border rounded hover:bg-slate-50"><input type="checkbox" checked={data.strengths.includes(o)} onChange={() => toggle(o)} className="w-4 h-4 text-indigo-600"/><span className="ml-3">{o}</span></label>)}</div>
+                </div>
+            );
+        };
+
+        const StepReview = ({ data }) => {
+            const downloadPDF = () => {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                const pageWidth = doc.internal.pageSize.getWidth();
+                let y = 20; const margin = 20; const lh = 7;
+
+                const txt = (t, s=10, b=false) => {
+                    doc.setFontSize(s); doc.setFont("helvetica", b ? "bold" : "normal");
+                    const lines = doc.splitTextToSize(t, 170);
+                    doc.text(lines, margin, y);
+                    y += (lines.length * lh) + 2;
+                    if (y > 270) { doc.addPage(); y = 20; }
+                };
+
+                // Photo
+                if(data.personalInfo.photo) {
+                    try { doc.addImage(data.personalInfo.photo, 'JPEG', pageWidth - 50, 15, 30, 30); } catch(e){}
+                }
+
+                txt(`${data.personalInfo.firstName} ${data.personalInfo.lastName}`, 22, true);
+                txt(`${data.personalInfo.city} | ${data.personalInfo.phone} | ${data.personalInfo.email}`);
+                y += 5; if(data.personalInfo.photo && y < 50) y = 50;
+
+                if(data.objective) { txt("OBJECTIVE", 14, true); txt(data.objective); y+=5; }
+                
+                if(data.education.length) {
+                    txt("EDUCATION", 14, true);
+                    data.education.forEach(e => {
+                        txt(`${e.institution}, ${e.program} (${e.graduationYear})`, 11, true);
+                        if(e.courses) txt(e.courses);
+                        y+=2;
+                    });
+                    y+=3;
+                }
+
+                if(data.workExperience.length) {
+                    txt("EXPERIENCE", 14, true);
+                    data.workExperience.forEach(e => {
+                        txt(`${e.role} at ${e.organization} | ${e.dates}`, 11, true);
+                        txt(e.description);
+                        y+=2;
+                    });
+                    y+=3;
+                }
+                
+                // Add other sections similarly...
+                if(data.skills.technical.length || data.skills.soft.length) {
+                    txt("SKILLS", 14, true);
+                    if(data.skills.technical.length) txt("Technical: " + data.skills.technical.join(", "));
+                    if(data.skills.soft.length) txt("Soft: " + data.skills.soft.join(", "));
+                    if(data.skills.other) txt(data.skills.other);
+                    y+=3;
+                }
+
+                doc.save("CV.pdf");
+            };
+
+            return (
+                <div className="flex flex-col lg:flex-row gap-8 h-full fade-in">
+                    <div className="w-full lg:w-1/3 space-y-6">
+                        <h2 className="text-2xl font-bold text-slate-800">Final Review</h2>
+                        <div className="bg-white p-4 rounded border shadow-sm">
+                            <h3 className="font-bold mb-2">Checklist</h3>
+                            <ul className="space-y-2 text-sm">
+                                <li className="flex items-center"><Icons.CheckCircle2 className={data.personalInfo.firstName ? "text-green-500 mr-2" : "text-gray-300 mr-2"} /> Personal Info</li>
+                                <li className="flex items-center"><Icons.CheckCircle2 className={data.objective ? "text-green-500 mr-2" : "text-gray-300 mr-2"} /> Objective</li>
+                                <li className="flex items-center"><Icons.CheckCircle2 className={data.education.length ? "text-green-500 mr-2" : "text-gray-300 mr-2"} /> Education</li>
+                            </ul>
+                        </div>
+                        <button onClick={downloadPDF} className="w-full flex justify-center items-center px-4 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700"><Icons.Download className="w-5 h-5 mr-2" /> Download PDF</button>
+                    </div>
+                    <div className="w-full lg:w-2/3 bg-white border shadow-lg p-8 font-serif text-slate-800">
+                        <div className="flex justify-between items-start border-b pb-6 mb-6">
+                            <div>
+                                <h1 className="text-3xl font-bold uppercase">{data.personalInfo.firstName} {data.personalInfo.lastName}</h1>
+                                <p>{data.personalInfo.city} | {data.personalInfo.phone}</p>
+                                <p>{data.personalInfo.email}</p>
+                            </div>
+                            {data.personalInfo.photo && <img src={data.personalInfo.photo} className="w-32 h-32 object-cover rounded border ml-4" alt="Profile"/>}
+                        </div>
+                        {data.objective && <div className="mb-6"><h3 className="font-bold border-b mb-2">OBJECTIVE</h3><p>{data.objective}</p></div>}
+                        {data.education.length > 0 && <div className="mb-6"><h3 className="font-bold border-b mb-2">EDUCATION</h3>{data.education.map((e, i) => <div key={i} className="mb-2"><div className="flex justify-between font-bold"><span>{e.institution}</span><span>{e.graduationYear}</span></div><div>{e.program}</div><p className="text-sm">{e.courses}</p></div>)}</div>}
+                        {(data.workExperience.length > 0 || data.volunteerExperience.length > 0) && <div className="mb-6"><h3 className="font-bold border-b mb-2">EXPERIENCE</h3>{[...data.workExperience, ...data.volunteerExperience].map((e, i) => <div key={i} className="mb-3"><div className="flex justify-between font-bold"><span>{e.role}</span><span>{e.dates}</span></div><div className="italic">{e.organization}</div><p className="whitespace-pre-line text-sm">{e.description}</p></div>)}</div>}
+                        <div className="mb-6"><h3 className="font-bold border-b mb-2">SKILLS</h3><div className="flex flex-wrap gap-2 text-sm">{[...data.skills.technical, ...data.skills.soft].map(s => <span key={s} className="bg-slate-100 px-2 rounded">{s}</span>)}</div><p className="mt-2 whitespace-pre-line text-sm">{data.skills.other}</p></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+            const [view, setView] = useState('home');
+            const [step, setStep] = useState(0);
+            const [cvData, setCvData] = useState(INITIAL_CV_DATA);
+            const [hasSaved, setHasSaved] = useState(false);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('cv_builder_data');
+                if(saved) {
+                    try {
+                        const p = JSON.parse(saved);
+                        setCvData(p);
+                        if(p.personalInfo?.firstName) setHasSaved(true);
+                    } catch(e) {}
+                }
+            }, []);
+
+            useEffect(() => {
+                if(view === 'builder') localStorage.setItem('cv_builder_data', JSON.stringify(cvData));
+            }, [cvData, view]);
+
+            const updateData = (d) => setCvData(prev => ({ ...prev, ...d }));
+            const next = () => setStep(p => Math.min(p + 1, STEPS.length - 1));
+            const prev = () => setStep(p => Math.max(p - 1, 0));
+            
+            const startNew = () => {
+                if(window.confirm("Start new CV? Current progress will be lost.")) {
+                    setCvData(INITIAL_CV_DATA);
+                    setStep(0);
+                    setView('builder');
+                }
+            };
+
+            const reset = () => {
+                if(window.confirm("Reset everything?")) {
+                    setCvData(INITIAL_CV_DATA);
+                    setStep(0);
+                }
+            };
+
+            const renderStep = () => {
+                const props = { data: cvData, updateData };
+                switch(step) {
+                    case 0: return <StepPersonal {...props} />;
+                    case 1: return <StepObjective {...props} />;
+                    case 2: return <StepEducation {...props} />;
+                    case 3: return <StepSkills {...props} />;
+                    case 4: return <StepWork {...props} />;
+                    case 5: return <StepVolunteer {...props} />;
+                    case 6: return <StepProjects {...props} />;
+                    case 7: return <StepAchievements {...props} />;
+                    case 8: return <StepLanguages {...props} />;
+                    case 9: return <StepHobbies {...props} />;
+                    case 10: return <StepStrengths {...props} />;
+                    case 11: return <StepReview {...props} />;
+                    default: return null;
+                }
+            };
+
+            if(view === 'home') {
+                return (
+                    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+                        <div className="max-w-md w-full bg-white rounded-xl shadow-xl overflow-hidden mb-8">
+                            <div className="bg-indigo-700 p-8 text-center text-white">
+                                <div className="mx-auto mb-4 w-16 h-16 bg-white/20 rounded-full flex items-center justify-center"><Icons.FileText size={32}/></div>
+                                <h2 className="text-sm text-indigo-200 font-semibold uppercase tracking-widest mb-1">Higher Colleges of Technology</h2>
+                                <h1 className="text-3xl font-bold">CV Building Coach</h1>
+                            </div>
+                            <div className="p-8 space-y-4">
+                                {hasSaved && <button onClick={() => setView('builder')} className="w-full flex justify-center items-center p-4 border-2 border-indigo-600 text-indigo-700 rounded-lg font-bold hover:bg-indigo-50"><Icons.FileText className="mr-2"/> Continue Editing</button>}
+                                <button onClick={() => { setCvData(INITIAL_CV_DATA); setStep(0); setView('builder'); }} className="w-full flex justify-center items-center p-4 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700"><Icons.PlusCircle className="mr-2"/> Start New CV</button>
+                            </div>
+                        </div>
+                        <footer className="text-slate-400 text-sm text-center"><p>Higher Colleges of Technology</p><p>Designed by: Nazila Motahari</p></footer>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center py-6 md:py-10 px-4">
+                    <div className="w-full max-w-5xl bg-white rounded-xl shadow-lg overflow-hidden flex flex-col md:min-h-[800px]">
+                        <header className="bg-indigo-700 text-white p-4 md:p-6 flex justify-between items-center">
+                            <div><p className="text-xs text-indigo-200 uppercase tracking-wider mb-1">Higher Colleges of Technology</p><h1 className="text-xl font-bold">CV Building Coach</h1></div>
+                            <div className="flex gap-2">
+                                <button onClick={() => setView('home')} className="px-3 py-1 bg-indigo-800 rounded text-sm hover:bg-indigo-900">Home</button>
+                                <button onClick={reset} className="flex items-center px-3 py-1 bg-white/10 rounded text-sm hover:bg-white/20"><Icons.RotateCcw size={14} className="mr-1" /> Reset</button>
+                            </div>
+                        </header>
+                        <main className="flex-1 p-4 md:p-10 flex flex-col">
+                            <ProgressBar current={step} total={STEPS.length} />
+                            <div className="flex-1 mt-4">{renderStep()}</div>
+                            <NavButtons currentStep={step} totalSteps={STEPS.length} onNext={next} onPrev={prev} />
+                        </main>
+                    </div>
+                    <footer className="mt-8 text-slate-400 text-sm text-center"><p>Higher Colleges of Technology • Designed by: Nazila Motahari</p></footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
