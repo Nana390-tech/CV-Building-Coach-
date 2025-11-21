@@ -68,26 +68,26 @@
         // --- STATIC DATA & HELPERS (Replacements for AI) ---
         const SUGGESTIONS = {
             objectives: [
-                "I am a hard-working student. I want an internship in [Field] to learn new skills.",
-                "I study [Major] at HCT. I am motivated and I want to use my skills in a real job.",
-                "I am looking for a job in [Industry]. I learn fast and I like to work with people.",
-                "I want to find an entry-level position to help the company and improve my knowledge."
+                "I am a student. I want an internship in [Field] to learn more.",
+                "I study [Major] at HCT. I want to find a job and use my skills.",
+                "I am looking for a job in [Industry]. I learn fast and I like people.",
+                "I want to work to help the company and learn new things."
             ],
             educationDescriptions: [
-                "I studied important subjects like [Course 1] and [Course 2]. I also did group projects.",
-                "I have good grades in my technical courses. I am good at research and presentations.",
-                "I learned how to use [Major] skills in real life. I joined many college activities."
+                "I studied [Course 1] and [Course 2]. I did projects with my team.",
+                "I have good grades. I am good at research and speaking in class.",
+                "I learned [Major] skills. I joined many college activities."
             ],
             skillBullets: [
-                "• I can use this software very well.",
-                "• I am good at using this tool to finish tasks.",
-                "• I know how to use digital tools and email."
+                "• I can use this software well.",
+                "• I am good at using this tool.",
+                "• I know how to use digital tools."
             ],
             softSkillExamples: {
-                "Teamwork": "I worked with a group of 4 students to finish a big project.",
-                "Communication": "I did a presentation for my class clearly and confidently.",
-                "Time Management": "I finished all my homework on time and never missed a deadline.",
-                "Problem Solving": "I fixed a technical problem during our group work."
+                "Teamwork": "I worked with my group to finish a project.",
+                "Communication": "I spoke to the class clearly.",
+                "Time Management": "I finished my homework on time.",
+                "Problem Solving": "I fixed a problem for my group."
             },
             actionVerbs: ["Assisted", "Organized", "Created", "Managed", "Supported", "Developed", "Communicated"],
             strengths: [
@@ -113,19 +113,17 @@
 
             getSoftSkillExamples: (skills) => {
                 return skills.map(s => {
-                    const ex = SUGGESTIONS.softSkillExamples[s] || `I showed ${s} during my college activities.`;
+                    const ex = SUGGESTIONS.softSkillExamples[s] || `I showed ${s} in college.`;
                     return `• ${s}: ${ex}`;
                 }).join("\n");
             },
 
             improveExperience: (text) => {
-                // Simple "AI" mock: Capitalize and add bullet
-                if (!text) return "• I helped the team with daily tasks.";
+                if (!text) return "• I helped the team.";
                 const lines = text.split('\n');
                 return lines.map(l => {
                     let clean = l.trim().replace(/^[•-]\s*/, '');
                     if(!clean) return '';
-                    // capitalize first letter
                     clean = clean.charAt(0).toUpperCase() + clean.slice(1);
                     return `• ${clean}`;
                 }).filter(Boolean).join('\n');
@@ -133,7 +131,7 @@
             
             generateHobbiesDesc: (hobbies) => {
                 if(hobbies.length === 0) return "";
-                return `I enjoy ${hobbies.join(', ').toLowerCase()} in my free time. These activities help me stay active and happy.`;
+                return `I like ${hobbies.join(', ').toLowerCase()}. It helps me stay happy.`;
             }
         };
 
@@ -298,7 +296,6 @@
         const StepObjective = ({ data, updateData }) => {
             const giveIdea = () => updateData({ objective: StaticHelper.getRandomObjective() });
             const improve = () => {
-                // Mock improvement
                 if(!data.objective) return giveIdea();
                 updateData({ objective: "Motivated student: " + data.objective });
             };
@@ -496,12 +493,67 @@
         };
 
         const StepStrengths = ({ data, updateData }) => {
+            const [custom, setCustom] = useState('');
             const opts = ["I am punctual.", "I can work in a team.", "I am polite.", "I learn fast.", "I stay calm."];
-            const toggle = (s) => { const l = data.strengths; updateData({ strengths: l.includes(s) ? l.filter(i => i !== s) : [...l, s] }); };
+            
+            const toggle = (s) => { 
+                const l = data.strengths; 
+                updateData({ strengths: l.includes(s) ? l.filter(i => i !== s) : [...l, s] }); 
+            };
+
+            const addCustom = () => {
+                if(custom.trim()) {
+                    if(!data.strengths.includes(custom.trim())) {
+                        updateData({ strengths: [...data.strengths, custom.trim()] });
+                    }
+                    setCustom('');
+                }
+            };
+
+            const remove = (s) => updateData({ strengths: data.strengths.filter(i => i !== s) });
+
             return (
                 <div className="space-y-6 fade-in">
                     <h2 className="text-2xl font-bold text-slate-800">Strengths</h2>
-                    <div className="grid gap-2">{opts.map(o => <label key={o} className="flex items-center p-3 border rounded hover:bg-slate-50"><input type="checkbox" checked={data.strengths.includes(o)} onChange={() => toggle(o)} className="w-4 h-4 text-indigo-600"/><span className="ml-3">{o}</span></label>)}</div>
+                    <div className="grid gap-2">
+                        {opts.map(o => (
+                            <label key={o} className="flex items-center p-3 border rounded hover:bg-slate-50">
+                                <input type="checkbox" checked={data.strengths.includes(o)} onChange={() => toggle(o)} className="w-4 h-4 text-indigo-600"/>
+                                <span className="ml-3">{o}</span>
+                            </label>
+                        ))}
+                    </div>
+                    
+                    <div className="mt-4">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Write your own strength:</label>
+                        <div className="flex gap-2">
+                            <input 
+                                className="flex-1 p-2 border rounded" 
+                                placeholder="e.g. I am creative" 
+                                value={custom} 
+                                onChange={e => setCustom(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && addCustom()}
+                            />
+                            <button onClick={addCustom} className="bg-indigo-600 text-white px-4 rounded hover:bg-indigo-700">Add</button>
+                        </div>
+                    </div>
+
+                    {data.strengths.length > 0 && (
+                        <div className="mt-4 p-4 bg-white border rounded">
+                            <h4 className="font-bold mb-2 text-sm text-slate-500 uppercase">Your List</h4>
+                            <ul className="space-y-1">
+                                {data.strengths.map((s, i) => (
+                                    <li key={i} className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                                        <span>{s}</span>
+                                        {!opts.includes(s) && (
+                                            <button onClick={() => remove(s)} className="text-red-400 hover:text-red-600"><Icons.X size={16}/></button>
+                                        )}
+                                        {opts.includes(s) && <Icons.CheckCircle2 size={16} className="text-green-500"/>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -561,6 +613,12 @@
                     y+=3;
                 }
 
+                if(data.strengths.length) {
+                    txt("STRENGTHS", 14, true);
+                    data.strengths.forEach(s => txt("• " + s));
+                    y+=3;
+                }
+
                 doc.save("CV.pdf");
             };
 
@@ -591,6 +649,7 @@
                         {data.education.length > 0 && <div className="mb-6"><h3 className="font-bold border-b mb-2">EDUCATION</h3>{data.education.map((e, i) => <div key={i} className="mb-2"><div className="flex justify-between font-bold"><span>{e.institution}</span><span>{e.graduationYear}</span></div><div>{e.program}</div><p className="text-sm">{e.courses}</p></div>)}</div>}
                         {(data.workExperience.length > 0 || data.volunteerExperience.length > 0) && <div className="mb-6"><h3 className="font-bold border-b mb-2">EXPERIENCE</h3>{[...data.workExperience, ...data.volunteerExperience].map((e, i) => <div key={i} className="mb-3"><div className="flex justify-between font-bold"><span>{e.role}</span><span>{e.dates}</span></div><div className="italic">{e.organization}</div><p className="whitespace-pre-line text-sm">{e.description}</p></div>)}</div>}
                         <div className="mb-6"><h3 className="font-bold border-b mb-2">SKILLS</h3><div className="flex flex-wrap gap-2 text-sm">{[...data.skills.technical, ...data.skills.soft].map(s => <span key={s} className="bg-slate-100 px-2 rounded">{s}</span>)}</div><p className="mt-2 whitespace-pre-line text-sm">{data.skills.other}</p></div>
+                        {data.strengths.length > 0 && <div className="mb-6"><h3 className="font-bold border-b mb-2">KEY STRENGTHS</h3><ul className="list-disc pl-5 text-sm">{data.strengths.map((s, i) => <li key={i}>{s}</li>)}</ul></div>}
                     </div>
                 </div>
             );
